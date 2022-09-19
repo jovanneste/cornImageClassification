@@ -84,3 +84,20 @@ class NeuralNetwork:
 		self.a2 = sigmoid(z2)
 		z3 = np.dot(self.a2, self.w3) + self.b3
 		self.a3 = softmax(z3)
+
+	def backprop(self, x):
+		if (x%100==0):
+			print('Error:', loss(self.a3, self.y))
+		a3_delta = cross_entropy(self.a3, self.y)
+		z2_delta = np.dot(a3_delta, self.w3.T)
+		a2_delta = z2_delta * sigmoid_derv(self.a2)
+		z1_delta = np.dot(a2_delta, self.w2.T)
+		a1_delta = z1_delta * sigmoid_derv(self.a1)
+
+        #adjusting weights and biases
+		self.w3 -= self.lr * np.dot(self.a2.T, a3_delta)
+		self.b3 -= self.lr * np.sum(a3_delta, axis=0, keepdims=True)
+		self.w2 -= self.lr * np.dot(self.a1.T, a2_delta)
+		self.b2 -= self.lr * np.sum(a2_delta, axis=0)
+		self.w1 -= self.lr * np.dot(self.x.T, a1_delta)
+		self.b1 -= self.lr * np.sum(a1_delta, axis=0)
