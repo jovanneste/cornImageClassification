@@ -10,7 +10,7 @@ train_labels = []
 
 df = pd.read_csv('corn/train.csv')
 #only first 100 rows
-df=df.head(100)
+df=df.head(1000)
 
 def labelToNum(label):
 	if (label=='pure'): return 0
@@ -24,7 +24,7 @@ for index, row in df.iterrows():
 	label = row.iloc[3]
 
 	image_array = cv2.imread("corn/"+img)
-	image_array = cv2.resize(image_array, (64,64))
+	image_array = cv2.resize(image_array, (8,8))
 
 	train_data.append(image_array)
 	train_labels.append(labelToNum(label))
@@ -67,7 +67,7 @@ class NeuralNetwork:
 		self.x = x
 		neurons = 128
 		self.lr = 0.5
-		input_dim = x.shape[1]
+		input_dim = x.shape[3]
 		output_dim = y.shape[1]
 		self.w1 = np.random.randn(input_dim, neurons)
 		self.w2 = np.random.randn(neurons, neurons)
@@ -86,7 +86,7 @@ class NeuralNetwork:
 		self.a3 = softmax(z3)
 
 	def backprop(self, x):
-		if (x%100==0):
+		if (x%10==0):
 			print('Error:', loss(self.a3, self.y))
 		a3_delta = cross_entropy(self.a3, self.y)
 		z2_delta = np.dot(a3_delta, self.w3.T)
@@ -101,3 +101,19 @@ class NeuralNetwork:
 		self.b2 -= self.lr * np.sum(a2_delta, axis=0)
 		self.w1 -= self.lr * np.dot(self.x.T, a1_delta)
 		self.b1 -= self.lr * np.sum(a1_delta, axis=0)
+
+
+	def predict(self, data):
+		self.x = data
+		self.feedforward()
+		return self.a3.argmax()
+
+
+print("Creating model...")
+model = NeuralNetwork(x_train/16.0, np.array(y_train))
+
+epochs = 100
+print("Training model (epochs: " +str(epochs)+")")
+for x in range(epochs):
+    model.feedforward()
+    model.backprop(x)
