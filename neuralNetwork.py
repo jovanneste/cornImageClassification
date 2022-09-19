@@ -1,14 +1,22 @@
 import cv2
 import os
 import numpy as np
+import pandas as pd
 
 train_data = []
+train_labels = []
 
-for img in os.listdir("corn/train"):
-	image_path = "corn/train"+"/"+img
-	image_array = cv2.imread(image_path)
+df = pd.read_csv('corn/train.csv')
+for index, row in df.iterrows():
+	id = row.iloc[0]
+	img = row.iloc[2]
+	label = row.iloc[3]
+
+	image_array = cv2.imread("corn/"+img)
 	image_array = cv2.resize(image_array, (224,224))
+
 	train_data.append(image_array)
+	train_labels.append(label)
 
 
 
