@@ -3,14 +3,18 @@ import os
 import numpy as np
 import pandas as pd
 
+from keras.layers import Dense
+from keras.models import Sequential
+from keras.optimizers import RMSprop, Adadelta, Adam
+
 from sklearn.model_selection import train_test_split
 
 train_data = []
 train_labels = []
 
 df = pd.read_csv('corn/train.csv')
-#only first 100 rows
-df=df.head(1000)
+#only first 14000 rows
+df=df.head(14000)
 
 def labelToNum(label):
 	if (label=='pure'): return 0
@@ -24,7 +28,7 @@ for index, row in df.iterrows():
 	label = row.iloc[3]
 
 	image_array = cv2.imread("corn/"+img)
-	image_array = cv2.resize(image_array, (8,8))
+	image_array = cv2.resize(image_array, (32,32))
 
 	train_data.append(image_array)
 	train_labels.append(labelToNum(label))
@@ -34,86 +38,25 @@ for index, row in df.iterrows():
 train_data = np.array(train_data)
 train_data=train_data/255.0
 
+train_data = train_data.reshape(14000, 3072)
+
 print(train_data.shape) #prints out (100, 64, 64, 3) might need to flatten to (100, 64*64)
 
 
 onehot_target = pd.get_dummies(train_labels)
 x_train, x_test, y_train, y_test = train_test_split(train_data, onehot_target, test_size=0.1, random_state=20)
 
-def sigmoid(s):
-    return 1/(1+np.exp(-s))
+print(x_train.shape)
 
-def softmax(s):
-    exps = np.exp(s - np.max(s, axis=1, keepdims=True))
-    return exps/np.sum(exps, axis=1, keepdims=True)
+model = Sequential()
+model.add(Dense(256, input_dim=x_train.shape[1], activation='relu'))
+model.add(Dense(256, activation='relu'))
+model.add(Dense(4, activation='softmax'))
 
-def sigmoid_derv(s):
-    return s*(1-s)
+model.summary()
 
-def cross_entropy(pred, real):
-    n_samples = real.shape[0]
-    res = pred - real
-    return res/n_samples
+model.compile(optimizer=Adadelta(), loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+model.fit(x_train, y_train, epochs=250, batch_size=1000)
 
-def loss(pred, real):
-	n_samples = real.shape[0]
-	logp = - np.log(pred[np.arange(n_samples), real.argmax(axis=1)])
-	loss = np.sum(logp)/n_samples
-	return loss
-
-
-class NeuralNetwork:
-	def __init__(self, x, y):
-		self.x = x
-		neurons = 128
-		self.lr = 0.5
-		input_dim = x.shape[3]
-		output_dim = y.shape[1]
-		self.w1 = np.random.randn(input_dim, neurons)
-		self.w2 = np.random.randn(neurons, neurons)
-		self.w3 = np.random.randn(neurons, output_dim)
-		self.b1 = np.zeros((1, neurons))
-		self.b2 = np.zeros((1, neurons))
-		self.b3 = np.zeros((1, output_dim))
-		self.y = y
-
-	def feedforward(self):
-		z1 = np.dot(self.x, self.w1) + self.b1
-		self.a1 = sigmoid(z1)
-		z2 = np.dot(self.a1, self.w2) + self.b2
-		self.a2 = sigmoid(z2)
-		z3 = np.dot(self.a2, self.w3) + self.b3
-		self.a3 = softmax(z3)
-
-	def backprop(self, x):
-		if (x%10==0):
-			print('Error:', loss(self.a3, self.y))
-		a3_delta = cross_entropy(self.a3, self.y)
-		z2_delta = np.dot(a3_delta, self.w3.T)
-		a2_delta = z2_delta * sigmoid_derv(self.a2)
-		z1_delta = np.dot(a2_delta, self.w2.T)
-		a1_delta = z1_delta * sigmoid_derv(self.a1)
-
-        #adjusting weights and biases
-		self.w3 -= self.lr * np.dot(self.a2.T, a3_delta)
-		self.b3 -= self.lr * np.sum(a3_delta, axis=0, keepdims=True)
-		self.w2 -= self.lr * np.dot(self.a1.T, a2_delta)
-		self.b2 -= self.lr * np.sum(a2_delta, axis=0)
-		self.w1 -= self.lr * np.dot(self.x.T, a1_delta)
-		self.b1 -= self.lr * np.sum(a1_delta, axis=0)
-
-
-	def predict(self, data):
-		self.x = data
-		self.feedforward()
-		return self.a3.argmax()
-
-
-print("Creating model...")
-model = NeuralNetwork(x_train/16.0, np.array(y_train))
-
-epochs = 100
-print("Training model (epochs: " +str(epochs)+")")
-for x in range(epochs):
-    model.feedforward()
-    model.backprop(x)
+scores = model.evaluate(x_test, y_test)
+print("\n%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
